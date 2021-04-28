@@ -103,7 +103,11 @@ checkUpdates = async (message) => {
 //Extracts h3 elements from latest GTA online article
 const getArticleBody = async (url) => {
     console.log("Getting latest article subtitles")
-    const browser = await puppeteer.launch({headless: true});
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox','--disable-setuid-sandbox'],
+        ignoreDefaultArgs: ['--disable-extensions']
+    });
     const page = await browser.newPage();
     await page.goto(url);
     await page.waitForTimeout(10000);
