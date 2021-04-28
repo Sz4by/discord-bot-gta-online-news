@@ -37,8 +37,11 @@ setupBot = (message) => {
 //Gets GTA online articles from Rockstar Newswire, extracts data and send message in case the article wasn't yet sent to the channel.
 checkUpdates = async (message) => {
     //Get data from Rockstar newswire
-    console.log(`Getting data from ${url}`)
-    const browser = await puppeteer.launch({headless: true});
+    console.log(`Getting data from ${url}`);
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox','--disable-setuid-sandbox']
+    });
     const page = await browser.newPage();
     await page.goto(url);
     await page.waitForTimeout(5000);
