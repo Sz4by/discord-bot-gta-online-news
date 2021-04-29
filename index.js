@@ -1,6 +1,6 @@
 const prefix = "%";
 let sentNews = [];
-const intervalMs = 3600000; //Check website every hour
+const intervalMs = 600000; //Check website every 10 minutes
 //Discord.js
 const Discord = require('discord.js');
 const client = new Discord.Client();
