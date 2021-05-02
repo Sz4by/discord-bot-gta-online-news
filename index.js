@@ -10,11 +10,6 @@ let mongoDBClient = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopo
 
 // ------------- Functions -------------
 
-const discordLogin = () => {
-    console.log("Logging in to Discord");
-    dcClient.login(process.env.TOKEN);
-}
-
 const getSentArticles = async () => {
     let sentArticles;
     try {
@@ -114,6 +109,7 @@ const sendMessage = (dcChannel, title, descMain, subfields, articleUrl, imgUrl) 
 
 //Gets GTA online articles from Rockstar Newswire, extracts data and send message in case the article wasn't yet sent to the channel.
 const checkUpdates = async (sentArticles, dcChannel) => {
+    let sentArticles = await getSentArticles();
     const browser = await puppeteer.launch({
         headless: true,
         args: ['--no-sandbox','--disable-setuid-sandbox'],
@@ -148,15 +144,13 @@ const getArticleBody = async (url, browser) => {
     return res;
 };
 
-async function main(){  
-    let sentArticles = await getSentArticles();
-    dcClient.once('ready', () => {
-        let dcChannel = dcClient.channels.cache.get(process.env.DC_CHANNEL_ID);
-        console.log(`Setting up bot on channel ${dcChannel}`);
-        checkUpdates(sentArticles, dcChannel);
-        setInterval(() => checkUpdates(sentArticles, dcChannel), parseInt(process.env.INTERVAL_MS))
-    });
-};
+// ------------- Main -------------
 
-discordLogin();
-main();
+console.log("Logging in to Discord");
+dcClient.login(process.env.TOKEN);
+dcClient.once('ready', () => {
+    let dcChannel = dcClient.channels.cache.get(process.env.DC_CHANNEL_ID);
+    console.log(`Setting up bot on channel ${dcChannel}`);
+    checkUpdates(dcChannel);
+    setInterval(() => checkUpdates(dcChannel), parseInt(process.env.INTERVAL_MS))
+});
