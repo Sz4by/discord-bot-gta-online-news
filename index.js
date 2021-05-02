@@ -30,7 +30,7 @@ const addSentArticle = async (title) => {
         mongoDBClient = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
         await mongoDBClient.connect().then(console.log("Connected to MongoDB, adding new item to collection"));
         sentArticles = await (await mongoDBClient.db("discord-bot").collection("gta-online-news-lock").find({}).toArray()).map(x => x.articleID);
-        console.log(sentArticles);
+        console.log(`Sent articles collection: ${sentArticles}`);
         await mongoDBClient.db("discord-bot").collection("gta-online-news-lock").insertOne({
             "articleID": title
         });
@@ -108,7 +108,7 @@ const sendMessage = (dcChannel, title, descMain, subfields, articleUrl, imgUrl) 
 }
 
 //Gets GTA online articles from Rockstar Newswire, extracts data and send message in case the article wasn't yet sent to the channel.
-const checkUpdates = async (sentArticles, dcChannel) => {
+const checkUpdates = async (dcChannel) => {
     let sentArticles = await getSentArticles();
     const browser = await puppeteer.launch({
         headless: true,
