@@ -13,6 +13,7 @@ let mongoDBClient = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopo
 const getSentArticles = async () => {
     let sentArticles;
     try {
+        mongoDBClient = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
         await mongoDBClient.connect().then(console.log("Connected to MongoDB"));
         sentArticles = await (await mongoDBClient.db("discord-bot").collection("gta-online-news-lock").find({}).toArray()).map(x => x.articleID);
         console.log(sentArticles);
