@@ -16,7 +16,7 @@ const getSentArticles = async () => {
         mongoDBClient = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
         await mongoDBClient.connect().then(console.log("Connected to MongoDB"));
         sentArticles = await (await mongoDBClient.db("discord-bot").collection("gta-online-news-lock").find({}).toArray()).map(x => x.articleID);
-        console.log(sentArticles);
+        console.log(`Sent articles collection: ${sentArticles}`);
     } catch (ex){
         console.error(ex);
     } finally {
@@ -30,8 +30,6 @@ const addSentArticle = async (title) => {
     try {
         mongoDBClient = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
         await mongoDBClient.connect().then(console.log("Connected to MongoDB, adding new item to collection"));
-        sentArticles = await (await mongoDBClient.db("discord-bot").collection("gta-online-news-lock").find({}).toArray()).map(x => x.articleID);
-        console.log(`Sent articles collection: ${sentArticles}`);
         await mongoDBClient.db("discord-bot").collection("gta-online-news-lock").insertOne({
             "articleID": title
         });
