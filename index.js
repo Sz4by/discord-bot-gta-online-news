@@ -1,52 +1,58 @@
-const prefix = "%";
-let sentNews = [];
-const intervalMs = 600000; //Check website every 10 minutes
-//Discord.js
-const Discord = require('discord.js');
-const client = new Discord.Client();
-//Node-fetch
-const fetch = require('node-fetch');
-//Puppeteer
-const puppeteer = require('puppeteer');
+
+const Discord = require('discord.js');                      //Discord.js
+const dcClient = new Discord.Client();
+const fetch = require('node-fetch');                        //Node-fetch
+const puppeteer = require('puppeteer');                     //Puppeteer
 const url = 'https://www.rockstargames.com/newswire';
+const MongoClient = require('mongodb').MongoClient;         //MongoDB
+const uri = `mongodb+srv://discord-bot-gta-online-news:${process.env.MONGO_PW}@cluster0.mwpxk.mongodb.net/discord-bot?retryWrites=true&w=majority`;
+let mongoDBClient = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
-//Login to Discord
-client.once('ready', () => console.log('Discord bot deployed!'));
-client.login(process.env.token);
+// ------------- Functions -------------
 
-//On new message event it checks if the message is for the bot (based on the prefix), get the arguments and command. Performs the setup on '%setup' command.
-client.on('message', message => {
-    if (message.author.username !== client.user.username) console.log(`New message from ${message.author.username}: ${message.content}`)
-    if (!message.content.startsWith(prefix) || message.author.bot) return;
-    const args = message.content.slice(prefix.length).trim().split(' ');
-    const command = args.shift().toLowerCase(); 
-    if (command === "setup") setupBot(message); //Set up Bot to send messages in channel.
-});
+const discordLogin = () => {
+    console.log("Logging in to Discord");
+    dcClient.login(process.env.TOKEN);
+}
 
+const getSentArticles = async () => {
+    let sentArticles;
+    try {
+        await mongoDBClient.connect().then(console.log("Connected to MongoDB"));
+        sentArticles = await (await mongoDBClient.db("discord-bot").collection("gta-online-news-lock").find({}).toArray()).map(x => x.articleID);
+        console.log(sentArticles);
+    } catch (ex){
+        console.error(ex);
+    } finally {
+        await mongoDBClient.close();
+        console.log("MongoDB Connection closed")
+    }
+    return sentArticles;
+}
 
-// ------ Functions ------
+const addSentArticle = async (title) => {
+    try {
+        mongoDBClient = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+        await mongoDBClient.connect().then(console.log("Connected to MongoDB, adding new item to collection"));
+        sentArticles = await (await mongoDBClient.db("discord-bot").collection("gta-online-news-lock").find({}).toArray()).map(x => x.articleID);
+        console.log(sentArticles);
+        await mongoDBClient.db("discord-bot").collection("gta-online-news-lock").insertOne({
+            "articleID": title
+        });
+    } catch (ex){
+        console.error(ex);
+    } finally {
+        await mongoDBClient.close();
+        console.log("MongoDB Connection closed")
+    }
+}
 
-//Confirms set up and starts checking the website based on the given interval.
-setupBot = (message) => {
-    console.log(`Setting up bot on channel ${message.channel.id}`)
-    message.channel.send("GTA Online news will be sent to this channel!");
-    checkUpdates(message);
-    setInterval(() => checkUpdates(message), intervalMs)
-};
-
-//Gets GTA online articles from Rockstar Newswire, extracts data and send message in case the article wasn't yet sent to the channel.
-checkUpdates = async (message) => {
-    //Get data from Rockstar newswire
+const readArticles = async (browser) => {
     console.log(`Getting data from ${url}`);
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox','--disable-setuid-sandbox'],
-        ignoreDefaultArgs: ['--disable-extensions']
-    });
     const page = await browser.newPage();
     await page.goto(url);
     await page.waitForTimeout(5000);
-    const res = await page.evaluate(() => {
+    const results = await page.evaluate(() => {
         let articles = document.querySelectorAll('._30cQN4q');
         const dataset = [...articles].map(a => ({
             innerText: a.innerText,
@@ -55,44 +61,71 @@ checkUpdates = async (message) => {
         }));
         return dataset;
     });
+    return results;
+}
 
-    //Data validation
-    if (res){
-        const gtaArticles = res.filter(a => a.innerText.includes("GTA Online")); //Get GTA Online articles
-        let latestArticle = gtaArticles[0]; //Get latest article
-        //Get details of latest article
-        let title = latestArticle.innerText.substring(latestArticle.innerText.indexOf("\n") + 1, latestArticle.innerText.lastIndexOf("\n"));
-        let imgUrl = latestArticle.innerHtml.substring(latestArticle.innerHtml.indexOf("https://media"), latestArticle.innerHtml.indexOf(".jpg") + 4);
-        let subtitles = await getArticleBody(latestArticle.href); //Get all subtitles from the article
-        let descMain = subtitles[0];
-        //Remove first subtitle from the array and adds indentions to the remaining array items
-        subtitles.shift(); 
-        let subfields = [...subtitles.map(s => ` - ${s}`)];
+const readLastGtaArticle = async (articles, browser) => {
+    const gtaArticles = articles.filter(a => a.innerText.includes("GTA Online"));
+    const latestArticle = gtaArticles[0];
+    const articleUrl = latestArticle.href;
+    const title = latestArticle.innerText.substring(latestArticle.innerText.indexOf("\n") + 1, latestArticle.innerText.lastIndexOf("\n"));
+    const imgUrl = latestArticle.innerHtml.substring(latestArticle.innerHtml.indexOf("https://media"), latestArticle.innerHtml.indexOf(".jpg") + 4)
+    const subtitles = await getArticleBody(latestArticle.href, browser);
+    const descMain = subtitles[0];
+    subtitles.shift();
+    const subfields = [...subtitles.map(s => ` - ${s}`)]; //Remove first subtitle from the array and adds indentions to the remaining array items
 
-        //Check if message was sent already
-        console.log(`Latest article title from Rockstar Newswire: ${title}`);
-        if (sentNews.includes(title)) {
-            console.log("Article was already sent to the channel");
-        } else {
-            //Add to memory and send message
-            console.log("Sending article to the Discord channel, and adding to memory.")
-            sentNews.push(title);
-            message.channel.send({embed: {
-                color: 3447003,
-                author: {
-                    name: client.user.username,
-                    icon_url: client.user.avatarURL
-                },
-                title: title,
-                description: `${descMain}\n\nMain updates this week:\n${subfields.join("\n")}`,
-                url: latestArticle.href,
-                image: {
-                    url: imgUrl
-                },
-                timestamp: new Date(),
-                footer: 'https://i.imgur.com/wSTFkRM.png'
-            }});
-            console.log("Message was sent successfully!")
+    console.log(`Latest article title from Rockstar Newswire: ${title}`);
+    return ({
+        title: title,
+        imgUrl: imgUrl,
+        subtitles: subtitles,
+        descMain: descMain,
+        subfields: subfields,
+        articleUrl: articleUrl
+    })
+}
+
+const sendMessage = (dcChannel, title, descMain, subfields, articleUrl, imgUrl) => {
+    let isSent = false;
+    try {
+        dcChannel.send({embed: {
+            color: 3447003,
+            author: {
+                name: dcClient.user.username,
+                icon_url: dcClient.user.avatarURL
+            },
+            title: title,
+            description: `${descMain}\n\nMain updates this week:\n${subfields.join("\n")}`,
+            url: articleUrl,
+            image: {
+                url: imgUrl
+            },
+            timestamp: new Date(),
+            footer: 'https://i.imgur.com/wSTFkRM.png'
+        }});
+        console.log("Message was sent successfully!");
+        isSent = true;
+    } catch (error) {
+        console.error(error)
+    }
+    return isSent;
+}
+
+//Gets GTA online articles from Rockstar Newswire, extracts data and send message in case the article wasn't yet sent to the channel.
+const checkUpdates = async (sentArticles, dcChannel) => {
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox','--disable-setuid-sandbox'],
+        ignoreDefaultArgs: ['--disable-extensions']
+    });
+    const articles = await readArticles(browser);
+    if (articles){
+        const {title, imgUrl, subtitles, descMain, subfields, articleUrl} = await readLastGtaArticle(articles, browser);
+        console.log(sentArticles.includes(title) ? "Article was already sent to the channel" : "Sending article to the Discord channel, and adding to memory.");
+        if (!sentArticles.includes(title)) {       
+            let isSent = sendMessage(dcChannel, title, descMain, subfields, articleUrl, imgUrl); //Send Discord message   
+            if (isSent) addSentArticle(title); //Adding to MongoDB
         }
     } else {
         console.error('No data was exported from webpage');
@@ -101,13 +134,8 @@ checkUpdates = async (message) => {
 };
 
 //Extracts h3 elements from latest GTA online article
-const getArticleBody = async (url) => {
-    console.log("Getting latest article subtitles")
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox','--disable-setuid-sandbox'],
-        ignoreDefaultArgs: ['--disable-extensions']
-    });
+const getArticleBody = async (url, browser) => {
+    console.log("Getting latest article subtitles");
     const page = await browser.newPage();
     await page.goto(url);
     await page.waitForTimeout(10000);
@@ -119,3 +147,16 @@ const getArticleBody = async (url) => {
     await browser.close();
     return res;
 };
+
+async function main(){  
+    let sentArticles = await getSentArticles();
+    dcClient.once('ready', () => {
+        let dcChannel = dcClient.channels.cache.get(process.env.DC_CHANNEL_ID);
+        console.log(`Setting up bot on channel ${dcChannel}`);
+        checkUpdates(sentArticles, dcChannel);
+        setInterval(() => checkUpdates(sentArticles, dcChannel), parseInt(process.env.INTERVAL_MS))
+    });
+};
+
+discordLogin();
+main();

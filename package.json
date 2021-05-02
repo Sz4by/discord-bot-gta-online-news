@@ -12,6 +12,7 @@
     "chromium": "^3.0.2",
     "discord.js": "^12.5.3",
     "dotenv": "^8.2.0",
+    "mongodb": "^3.6.6",
     "puppeteer": "^9.0.0"
   }
 }
