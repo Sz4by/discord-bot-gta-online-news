@@ -55,6 +55,7 @@ const readArticles = async (browser) => {
         }));
         return dataset;
     });
+    await browser.close();
     return results;
 }
 
@@ -125,7 +126,6 @@ const checkUpdates = async (dcChannel) => {
     } else {
         console.error('No data was exported from webpage');
     }
-    await browser.close();
 };
 
 //Extracts h3 elements from latest GTA online article
