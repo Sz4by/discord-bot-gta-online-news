@@ -41,8 +41,13 @@ const addSentArticle = async (title) => {
     }
 }
 
-const readArticles = async (browser) => {
+const readArticles = async () => {
     console.log(`Getting data from ${url}`);
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox','--disable-setuid-sandbox'],
+        ignoreDefaultArgs: ['--disable-extensions']
+    });
     const page = await browser.newPage();
     await page.goto(url);
     await page.waitForTimeout(5000);
@@ -59,13 +64,13 @@ const readArticles = async (browser) => {
     return results;
 }
 
-const readLastGtaArticle = async (articles, browser) => {
+const readLastGtaArticle = async (articles) => {
     const gtaArticles = articles.filter(a => a.innerText.includes("GTA Online"));
     const latestArticle = gtaArticles[0];
     const articleUrl = latestArticle.href;
     const title = latestArticle.innerText.substring(latestArticle.innerText.indexOf("\n") + 1, latestArticle.innerText.lastIndexOf("\n"));
     const imgUrl = latestArticle.innerHtml.substring(latestArticle.innerHtml.indexOf("https://media"), latestArticle.innerHtml.indexOf(".jpg") + 4)
-    const subtitles = await getArticleBody(latestArticle.href, browser);
+    const subtitles = await getArticleBody(latestArticle.href);
     const descMain = subtitles[0];
     subtitles.shift();
     const subfields = [...subtitles.map(s => ` - ${s}`)]; //Remove first subtitle from the array and adds indentions to the remaining array items
@@ -110,14 +115,9 @@ const sendMessage = (dcChannel, title, descMain, subfields, articleUrl, imgUrl) 
 //Gets GTA online articles from Rockstar Newswire, extracts data and send message in case the article wasn't yet sent to the channel.
 const checkUpdates = async (dcChannel) => {
     let sentArticles = await getSentArticles();
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox','--disable-setuid-sandbox'],
-        ignoreDefaultArgs: ['--disable-extensions']
-    });
-    const articles = await readArticles(browser);
+    const articles = await readArticles();
     if (articles){
-        const {title, imgUrl, subtitles, descMain, subfields, articleUrl} = await readLastGtaArticle(articles, browser);
+        const {title, imgUrl, subtitles, descMain, subfields, articleUrl} = await readLastGtaArticle(articles);
         console.log(sentArticles.includes(title) ? "Article was already sent to the channel" : "Sending article to the Discord channel, and adding to memory.");
         if (!sentArticles.includes(title)) {       
             let isSent = sendMessage(dcChannel, title, descMain, subfields, articleUrl, imgUrl); //Send Discord message   
@@ -129,8 +129,13 @@ const checkUpdates = async (dcChannel) => {
 };
 
 //Extracts h3 elements from latest GTA online article
-const getArticleBody = async (url, browser) => {
+const getArticleBody = async (url) => {
     console.log("Getting latest article subtitles");
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox','--disable-setuid-sandbox'],
+        ignoreDefaultArgs: ['--disable-extensions']
+    });
     const page = await browser.newPage();
     await page.goto(url);
     await page.waitForTimeout(10000);
