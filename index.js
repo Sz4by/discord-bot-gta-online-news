@@ -5,7 +5,7 @@ const fetch = require('node-fetch');                        //Node-fetch
 const puppeteer = require('puppeteer');                     //Puppeteer
 const url = 'https://www.rockstargames.com/newswire';
 const MongoClient = require('mongodb').MongoClient;         //MongoDB
-const uri = `mongodb+srv://discord-bot-gta-online-news:${process.env.MONGO_PW}@cluster0.mwpxk.mongodb.net/discord-bot?retryWrites=true&w=majority`;
+const uri = `${process.env.MONGO_CONNECTION_STR}`;
 let mongoDBClient = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
 // ------------- Functions -------------
