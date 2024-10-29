@@ -1,4 +1,4 @@
-
+const keep_alive = require('./keep_alive.js')
 const Discord = require('discord.js');                      //Discord.js
 const dcClient = new Discord.Client();
 const fetch = require('node-fetch');                        //Node-fetch
